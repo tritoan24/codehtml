@@ -33,7 +33,7 @@
             height: 100%;
             transform-style: preserve-3d;
             transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg) scale(1);
-            transition: transform 0.1s ease-out;
+            will-change: transform;
         }
 
         .text-particle {
@@ -47,10 +47,12 @@
                 0 0 20px currentColor,
                 0 0 30px currentColor,
                 2px 2px 4px rgba(0,0,0,0.8);
-            animation: fall linear infinite;
             transform-style: preserve-3d;
             pointer-events: none;
             letter-spacing: 1px;
+            will-change: transform, opacity;
+            backface-visibility: hidden;
+            transform: translateZ(0); /* Force hardware acceleration */
         }
 
         .text-particle.love {
@@ -99,23 +101,6 @@
                 3px 3px 8px rgba(0,0,0,0.9);
         }
 
-        @keyframes fall {
-            0% {
-                transform: translateY(-150px) translateZ(var(--z));
-                opacity: 0;
-            }
-            5% {
-                opacity: 1;
-            }
-            95% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(calc(100vh + 150px)) translateZ(var(--z));
-                opacity: 0;
-            }
-        }
-
         .star {
             position: absolute;
             width: 2px;
@@ -124,6 +109,7 @@
             border-radius: 50%;
             box-shadow: 0 0 10px white;
             animation: twinkle 3s infinite;
+            will-change: opacity;
         }
 
         @keyframes twinkle {
@@ -245,6 +231,8 @@
         let lastMouseY = 0;
 
         const galaxy = document.getElementById('galaxy');
+        const activeParticles = new Set(); // Track active particles for performance
+        const maxParticles = 100; // Limit số lượng particles
 
         function getRandomMessage() {
             return messages[Math.floor(Math.random() * messages.length)];
@@ -267,6 +255,11 @@
         }
 
         function createTextParticle() {
+            // Limit số lượng particles để tránh lag
+            if (activeParticles.size >= maxParticles) {
+                return;
+            }
+
             const isHeart = Math.random() > 0.7;
             const element = document.createElement('div');
             
@@ -281,31 +274,52 @@
             
             // Vị trí ngẫu nhiên trên màn hình
             const xPos = Math.random() * 100;
-            const zPos = (Math.random() - 0.5) * 500; // Chiều sâu 3D
-            const animationDuration = Math.random() * 4 + 4; // 4-8 giây rơi (tăng thời gian)
+            const zPos = (Math.random() - 0.5) * 500;
+            const animationDuration = Math.random() * 2 + 3; // Giảm thời gian rơi xuống 3-5 giây
             
             element.style.left = xPos + '%';
-            element.style.top = '-150px'; // Bắt đầu từ trên màn hình
-            element.style.setProperty('--z', zPos + 'px');
-            element.style.animationDuration = animationDuration + 's';
             element.style.fontSize = (Math.random() * 6 + 12) + 'px';
             
             // Điều chỉnh opacity dựa trên chiều sâu
             const depthOpacity = Math.max(0.4, 1 - Math.abs(zPos) / 400);
             element.style.opacity = depthOpacity;
             
-            galaxy.appendChild(element);
+            // Sử dụng requestAnimationFrame cho animation mượt hơn
+            let startTime = null;
+            let startY = -150;
+            let endY = window.innerHeight + 150;
             
-            // Xóa element sau khi animation hoàn thành
-            setTimeout(() => {
-                if (element.parentNode) {
-                    element.parentNode.removeChild(element);
+            function animateParticle(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const progress = (timestamp - startTime) / (animationDuration * 1000);
+                
+                if (progress < 1) {
+                    const currentY = startY + (endY - startY) * progress;
+                    const opacity = progress < 0.05 ? progress * 20 : 
+                                  progress > 0.95 ? (1 - progress) * 20 : 
+                                  depthOpacity;
+                    
+                    element.style.transform = `translate3d(0, ${currentY}px, ${zPos}px)`;
+                    element.style.opacity = opacity;
+                    
+                    requestAnimationFrame(animateParticle);
+                } else {
+                    // Animation hoàn thành, xóa element
+                    if (element.parentNode) {
+                        element.parentNode.removeChild(element);
+                        activeParticles.delete(element);
+                    }
                 }
-            }, animationDuration * 1000 + 1000); // Thêm 1 giây buffer
+            }
+            
+            galaxy.appendChild(element);
+            activeParticles.add(element);
+            requestAnimationFrame(animateParticle);
         }
 
         function createStars() {
-            for (let i = 0; i < 1000; i++) {
+            // Giảm số lượng stars để tối ưu performance
+            for (let i = 0; i < 500; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
                 
@@ -332,7 +346,9 @@
         }
 
         function updateGalaxyTransform() {
-            galaxy.style.transform = `translate(-50%, -50%) rotateX(${rotationX}deg) rotateY(${rotationY}deg) scale(${scale})`;
+            requestAnimationFrame(() => {
+                galaxy.style.transform = `translate(-50%, -50%) rotateX(${rotationX}deg) rotateY(${rotationY}deg) scale(${scale})`;
+            });
         }
 
         function zoomIn() {
@@ -406,23 +422,15 @@
             updateGalaxyTransform();
         });
 
-        // Auto rotation
-        setInterval(() => {
-            if (!isDragging) {
-                rotationY += 0.1;
-                updateGalaxyTransform();
-            }
-        }, 70);
-
         // Initialize
         createStars();
         
-        // Create text particles continuously
-        setInterval(createTextParticle, 100);
+        // Create text particles với tần suất thấp hơn
+        setInterval(createTextParticle, 100); // Tăng interval từ 100ms lên 200ms
         
         // Create initial particles
-        for (let i = 0; i < 50; i++) {
-            setTimeout(createTextParticle, i * 100);
+        for (let i = 0; i < 20; i++) { // Giảm từ 50 xuống 20
+            setTimeout(createTextParticle, i * 200);
         }
     </script>
 </body>
