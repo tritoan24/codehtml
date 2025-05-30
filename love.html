@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
     <title>Dải Ngân Hà 3D - Mưa Chữ</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -19,14 +19,19 @@
             overflow: hidden;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         body {
             background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
             font-family: 'Orbitron', 'Courier New', monospace;
-            perspective: 2000px;
+            perspective: 1500px;
             cursor: grab;
             touch-action: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body:active {
@@ -100,7 +105,6 @@
         }
 
         .text-particle.heart {
-            font-size: 20px;
             color: #ff69b4;
             text-shadow: 
                 0 0 20px #ff69b4,
@@ -123,6 +127,58 @@
         @keyframes twinkle {
             0%, 100% { opacity: 0.3; }
             50% { opacity: 1; }
+        }
+
+        /* Mobile specific styles */
+        @media (max-width: 768px) {
+            body {
+                perspective: 1000px;
+            }
+            
+            .galaxy-container {
+                perspective: 1000px;
+            }
+            
+            .text-particle {
+                font-size: 12px;
+                letter-spacing: 0.5px;
+            }
+            
+            .text-particle.heart {
+                font-size: 16px;
+            }
+            
+            .star {
+                width: 1.5px;
+                height: 1.5px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .text-particle {
+                font-size: 10px;
+                letter-spacing: 0.3px;
+            }
+            
+            .text-particle.heart {
+                font-size: 14px;
+            }
+            
+            .star {
+                width: 1px;
+                height: 1px;
+            }
+        }
+
+        /* Landscape orientation on mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .text-particle {
+                font-size: 10px;
+            }
+            
+            .text-particle.heart {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
@@ -172,9 +228,16 @@
 
         const galaxy = document.getElementById('galaxy');
         const activeParticles = new Set();
-        const maxParticles = 100;
+        
+        // Responsive particle and star counts
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        
+        const maxParticles = isSmallMobile ? 80 : isMobile ? 100 : 120;
+        const starCount = isSmallMobile ? 250 : isMobile ? 350 : 500;
+        const particleInterval = isMobile ? 150 : 200;
 
-        // Prevent scrolling
+        // Prevent scrolling and zooming
         document.addEventListener('touchmove', function(e) {
             e.preventDefault();
         }, { passive: false });
@@ -182,6 +245,18 @@
         document.addEventListener('wheel', function(e) {
             e.preventDefault();
         }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('gesturechange', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('gestureend', function(e) {
+            e.preventDefault();
+        });
 
         function getRandomMessage() {
             return messages[Math.floor(Math.random() * messages.length)];
@@ -221,13 +296,17 @@
             }
             
             const xPos = Math.random() * 100;
-            const zPos = (Math.random() - 0.5) * 500;
-            const animationDuration = Math.random() * 2 + 3;
+            const zPos = (Math.random() - 0.5) * (isMobile ? 300 : 500);
+            const animationDuration = Math.random() * 2 + (isMobile ? 3 : 3);
             
             element.style.left = xPos + '%';
-            element.style.fontSize = (Math.random() * 6 + 12) + 'px';
             
-            const depthOpacity = Math.max(0.4, 1 - Math.abs(zPos) / 400);
+            // Responsive font size
+            const baseFontSize = isSmallMobile ? 8 : isMobile ? 10 : 12;
+            const fontSizeVariation = isSmallMobile ? 4 : isMobile ? 5 : 6;
+            element.style.fontSize = (Math.random() * fontSizeVariation + baseFontSize) + 'px';
+            
+            const depthOpacity = Math.max(0.4, 1 - Math.abs(zPos) / (isMobile ? 250 : 400));
             element.style.opacity = depthOpacity;
             
             let startTime = null;
@@ -262,16 +341,16 @@
         }
 
         function createStars() {
-            for (let i = 0; i < 500; i++) {
+            for (let i = 0; i < starCount; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
                 
                 const angle = Math.random() * Math.PI * 10;
-                const radius = Math.random() * 1500 + 300;
-                const spiralHeight = Math.sin(angle) * 150;
+                const radius = Math.random() * (isMobile ? 800 : 1500) + (isMobile ? 200 : 300);
+                const spiralHeight = Math.sin(angle) * (isMobile ? 100 : 150);
                 
                 const x = Math.cos(angle) * radius;
-                const y = spiralHeight + (Math.random() - 0.5) * 2000;
+                const y = spiralHeight + (Math.random() - 0.5) * (isMobile ? 1000 : 2000);
                 const z = Math.sin(angle) * radius * 0.5;
                 
                 star.style.left = `calc(50% + ${x}px)`;
@@ -279,7 +358,7 @@
                 star.style.transform = `translateZ(${z}px)`;
                 star.style.animationDelay = Math.random() * 3 + 's';
                 
-                const depthBrightness = Math.max(0.1, 1 - Math.abs(z) / 1200);
+                const depthBrightness = Math.max(0.1, 1 - Math.abs(z) / (isMobile ? 800 : 1200));
                 star.style.opacity = depthBrightness;
                 
                 galaxy.appendChild(star);
@@ -304,8 +383,9 @@
                 const deltaX = e.clientX - lastMouseX;
                 const deltaY = e.clientY - lastMouseY;
                 
-                rotationY += deltaX * 0.5;
-                rotationX -= deltaY * 0.5;
+                const sensitivity = isMobile ? 0.3 : 0.5;
+                rotationY += deltaX * sensitivity;
+                rotationX -= deltaY * sensitivity;
                 
                 updateGalaxyTransform();
                 
@@ -318,39 +398,81 @@
             isDragging = false;
         });
 
-        // Touch events for mobile
+        // Enhanced touch events for mobile
+        let initialDistance = 0;
+        let initialScale = 1;
+
         document.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            lastMouseX = e.touches[0].clientX;
-            lastMouseY = e.touches[0].clientY;
-        });
+            e.preventDefault();
+            
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                // Pinch to zoom
+                isDragging = false;
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                initialScale = scale;
+            }
+        }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
-            if (isDragging) {
+            e.preventDefault();
+            
+            if (e.touches.length === 1 && isDragging) {
                 const deltaX = e.touches[0].clientX - lastMouseX;
                 const deltaY = e.touches[0].clientY - lastMouseY;
                 
-                rotationY += deltaX * 0.5;
-                rotationX -= deltaY * 0.5;
+                const sensitivity = 0.3;
+                rotationY += deltaX * sensitivity;
+                rotationX -= deltaY * sensitivity;
                 
                 updateGalaxyTransform();
                 
                 lastMouseX = e.touches[0].clientX;
                 lastMouseY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                // Pinch to zoom
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                
+                const scaleChange = currentDistance / initialDistance;
+                scale = Math.max(0.5, Math.min(2, initialScale * scaleChange));
+                
+                updateGalaxyTransform();
             }
-        });
+        }, { passive: false });
 
-        document.addEventListener('touchend', () => {
+        document.addEventListener('touchend', (e) => {
+            e.preventDefault();
             isDragging = false;
+        }, { passive: false });
+
+        // Handle orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                location.reload();
+            }, 100);
         });
 
         // Initialize
         createStars();
         
-        setInterval(createTextParticle, 200);
+        setInterval(createTextParticle, particleInterval);
         
-        for (let i = 0; i < 20; i++) {
-            setTimeout(createTextParticle, i * 200);
+        const initialParticles = isMobile ? 25 : 20;
+        for (let i = 0; i < initialParticles; i++) {
+            setTimeout(createTextParticle, i * (particleInterval * 0.6));
         }
     </script>
 </body>
